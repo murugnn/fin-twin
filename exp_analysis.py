@@ -469,6 +469,105 @@ class ExpenseAnalyzer:
         print(f"Generated {len(insights)} insights")
         return insights
         
+    def create_visualizations(self, save_plots=True):
+            """Create various visualizations"""
+            print("Creating visualizations...")
+            
+            if not hasattr(self, 'summaries'):
+                self.calculate_summaries()
+            
+            plt.style.use('default')
+            sns.set_palette("husl")
+            
+            fig = plt.figure(figsize=(16, 12))
+            
+            
+            ax1 = plt.subplot(2, 3, 1)
+            category_data = list(self.summaries['category_spending'].values())
+            category_labels = list(self.summaries['category_spending'].keys())
+            
+            colors = plt.cm.Set3(np.linspace(0, 1, len(category_labels)))
+            wedges, texts, autotexts = ax1.pie(category_data, labels=category_labels, autopct='%1.1f%%', 
+                                            colors=colors, startangle=90)
+            ax1.set_title('Spending by Category', fontsize=14, fontweight='bold')
+            
+            ax2 = plt.subplot(2, 3, 2)
+            monthly_data = self.summaries['monthly_spending']
+            months = list(monthly_data.keys())
+            amounts = list(monthly_data.values())
+            
+            ax2.plot(months, amounts, marker='o', linewidth=2, markersize=6)
+            ax2.set_title('Monthly Spending Trend', fontsize=14, fontweight='bold')
+            ax2.set_xlabel('Month')
+            ax2.set_ylabel('Amount (₹)')
+            ax2.tick_params(axis='x', rotation=45)
+            
+            ax3 = plt.subplot(2, 3, 3)
+            daily_data = self.data.groupby(self.data['date'].dt.date)['amount'].sum()
+            ax3.bar(range(len(daily_data)), daily_data.values, alpha=0.7)
+            ax3.set_title('Daily Spending Pattern', fontsize=14, fontweight='bold')
+            ax3.set_xlabel('Days')
+            ax3.set_ylabel('Amount (₹)')
+            
+            ax4 = plt.subplot(2, 3, 4)
+            transaction_counts = list(self.summaries['transactions_per_category'].values())
+            category_names = list(self.summaries['transactions_per_category'].keys())
+            
+            bars = ax4.bar(category_names, transaction_counts, color=colors[:len(category_names)])
+            ax4.set_title('Transactions per Category', fontsize=14, fontweight='bold')
+            ax4.set_xlabel('Category')
+            ax4.set_ylabel('Number of Transactions')
+            ax4.tick_params(axis='x', rotation=45)
+            
+            ax5 = plt.subplot(2, 3, 5)
+            weekly_data = self.summaries['weekly_spending']
+            weeks = list(weekly_data.keys())
+            weekly_amounts = list(weekly_data.values())
+            
+            ax5.plot(weeks, weekly_amounts, marker='s', linewidth=2, markersize=4, color='green')
+            ax5.set_title('Weekly Spending Trend', fontsize=14, fontweight='bold')
+            ax5.set_xlabel('Week')
+            ax5.set_ylabel('Amount (₹)')
+            ax5.tick_params(axis='x', rotation=45)
+            
+            ax6 = plt.subplot(2, 3, 6)
+            top_transactions = self.data.nlargest(10, 'amount')
+            
+            bars = ax6.barh(range(len(top_transactions)), top_transactions['amount'])
+            ax6.set_yticks(range(len(top_transactions)))
+            ax6.set_yticklabels([desc[:20] + '...' if len(desc) > 20 else desc 
+                                for desc in top_transactions['description']], fontsize=8)
+            ax6.set_title('Top 10 Transactions', fontsize=14, fontweight='bold')
+            ax6.set_xlabel('Amount (₹)')
+            
+            plt.tight_layout()
+            
+            if save_plots:
+                plt.savefig('expense_analysis.png', dpi=300, bbox_inches='tight')
+                print("Visualizations saved as 'expense_analysis.png'")
+            
+            plt.show()
+        
+    def save_processed_data(self, filename='processed_expenses.json'):
+        """Save processed data to JSON file"""
+        print(f"Saving processed data to {filename}...")
+            
+        if not hasattr(self, 'summaries'):
+            self.calculate_summaries()
+            
+        if not hasattr(self, 'insights'):
+            self.generate_insights()
+            
+        processed_data = {
+            'metadata': {
+                'total_transactions': len(self.data),
+                'date_range': self.summaries['date_range'],
+                'processed_at': datetime.now().isoformat()
+            },
+            'summaries': self.summaries,
+            'insights': self.insights,
+            'transactions': self.data.to_dict('records')
+        }
        
         def convert_numpy_types(obj):
             if isinstance(obj, np.integer):
